@@ -30,6 +30,17 @@ class SQLResponse(BaseModel):
         description="If valid_request is False, a brief explanation of why the request is invalid; otherwise an empty string."
     )
 
+class ChatResponse(BaseModel):
+
+    voice_text :str = Field(
+        ...,
+        description="The text to be converted to voice"
+    ),
+    chat_text: str = Field(
+        ...,
+        description="The text to be displayed in the chat"
+    )
+
 
 def find_similar_parts(part_name: str, k: int = 5) -> List[Tuple[str, float]]:
     embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL)
@@ -171,7 +182,7 @@ def fetch_jc_data_retry(user_query: str, max_retries: int = 3):
                     model="gemini-2.5-flash",
                     contents=fix_prompt,
                     config=types.GenerateContentConfig(
-                        thinking_config=types.ThinkingConfig(thinking_budget=0),
+                        thinking_config=types.ThinkingConfig(thinking_budget=10000),
                         response_mime_type="application/json",
                         response_schema=SQLResponse,
                     ),
@@ -192,5 +203,13 @@ def fetch_jc_data_retry(user_query: str, max_retries: int = 3):
     final = client.models.generate_content(
         model="gemini-2.5-flash",
         contents=format_prompt,
+        config=types.GenerateContentConfig(
+                        thinking_config=types.ThinkingConfig(thinking_budget=10000),
+                        response_mime_type="application/json",
+                        response_schema=ChatResponse,
+                    ),
     )
-    return final.text
+    if final.parsed:
+        return final.parsed.voice_text, final.parsed.chat_text
+    else:
+        return final.text
